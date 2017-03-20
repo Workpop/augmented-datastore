@@ -1,13 +1,13 @@
 {
   "name": "@workpop/augmented-datastore",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A datastore which combines data from multiple sources",
   "scripts": {
     "build": "babel ./src --ignore test --out-dir ./lib",
     "lint": "eslint ./src",
     "flow": "flow check",
     "release": "standard-version",
-    "test": "mocha --require babel-core/register --reporter spec \"test\/*.js\""
+    "test": "mocha --require babel-core/register --reporter spec \"test/*.js\""
   },
   "keywords": [
     "datastore"
