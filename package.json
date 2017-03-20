@@ -1,0 +1,37 @@
+{
+  "name": "@workpop/augmented-datastore",
+  "version": "0.0.1",
+  "description": "A datastore which combines data from multiple sources",
+  "scripts": {
+    "build": "babel ./src --ignore test --out-dir ./lib",
+    "lint": "eslint ./src",
+    "flow": "flow check",
+    "release": "standard-version",
+    "test": "mocha --require babel-core/register --reporter spec \"test\/*.js\""
+  },
+  "keywords": [
+    "datastore"
+  ],
+  "author": "Gavin Minami",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.4"
+  },
+  "devDependencies": {
+    "@workpop/eslint-config-workpop": "0.0.7",
+    "babel-cli": "^6.23.0",
+    "babel-plugin-transform-export-extensions": "^6.22.0",
+    "babel-plugin-transform-flow-strip-types": "^6.22.0",
+    "babel-plugin-transform-object-assign": "^6.22.0",
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-preset-es2015": "^6.22.0",
+    "babel-preset-stage-2": "^6.22.0",
+    "chai": "^3.5.0",
+    "eslint": "^3.16.1",
+    "flow-bin": "^0.40.0",
+    "mocha": "^3.2.0",
+    "standard-version": "^4.0.0"
+  },
+  "main": "index.js",
+  "repository": {}
+}
