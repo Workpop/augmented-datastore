@@ -32,6 +32,6 @@
     "mocha": "^3.2.0",
     "standard-version": "^4.0.0"
   },
-  "main": "index.js",
+  "main": "lib/index.js",
   "repository": {}
 }
