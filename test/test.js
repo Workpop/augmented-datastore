@@ -49,11 +49,11 @@ class MockDatastore {
   }
 }
 
-describe("Test Augmented Datastore", function () {
+describe('Test Augmented Datastore', function () {
 
   describe('Test mock datastore', function () {
     const mockDatastore = new MockDatastore({});
-    it("index should create document in mock datastore", function () {
+    it('index should create document in mock datastore', function () {
       mockDatastore.index({
         _id: '555',
         hello: 'world',
@@ -63,7 +63,7 @@ describe("Test Augmented Datastore", function () {
       expect(get(retrievedDoc, 'hello')).to.deep.equal('world');
     });
 
-    it("unindex should remove document in mock datastore", function () {
+    it('unindex should remove document in mock datastore', function () {
       mockDatastore.unindex('555');
       const retrievedDoc2 = mockDatastore.get('555');
       expect(retrievedDoc2).to.not.be.defined;
@@ -74,13 +74,13 @@ describe("Test Augmented Datastore", function () {
     const mockDatastore = new MockDatastore({});
     const ads = createAugmentedDatastore(mockDatastore);
 
-    it("ADS index should create document in destination datastore", function () {
+    it('ADS index should create document in destination datastore', function () {
       ads.index('app1');
       const retrievedDoc = mockDatastore.get('app1');
       expect(retrievedDoc).to.be.defined;
     });
 
-    it("ADS unindex should remove document in destination datastore", function () {
+    it('ADS unindex should remove document in destination datastore', function () {
       ads.unindex('app1');
       const retrievedDoc = mockDatastore.get('app1');
       expect(retrievedDoc).to.not.be.defined;
@@ -89,34 +89,39 @@ describe("Test Augmented Datastore", function () {
 
   describe('ADS with fragments', function () {
     const mockDatastore = new MockDatastore({});
-    const ads = createAugmentedDatastore(mockDatastore).withFragment({
-      id: 'status',
-      init: noop,
-      buildFragment: function(id) {
-        const sourceApplicationDoc = get(sourceDataApplication, id);
-        return get(sourceApplicationDoc, 'status');
-      },
-      onMessage: function(message) {
-        const {type, applicationId} = message;
-        if (type === 'statusUpdated') {
-          return {
-            ids: [applicationId],
-            action: ACTION_TYPE_UPDATE_FRAGMENT,
+    let ads;
+    it('creating ADS should succeed', function () {
+      ads = createAugmentedDatastore(mockDatastore).withFragment({
+        id: 'status',
+        init: function (adsMessageHandler) {
+          expect(adsMessageHandler).to.be.defined;
+        },
+        buildFragment: function (id) {
+          const sourceApplicationDoc = get(sourceDataApplication, id);
+          return get(sourceApplicationDoc, 'status');
+        },
+        onMessage: function (message) {
+          const {type, applicationId} = message;
+          if (type === 'statusUpdated') {
+            return {
+              ids: [applicationId],
+              action: ACTION_TYPE_UPDATE_FRAGMENT,
+            };
           }
-        }
-      }
-    }).withFragment({
-      id: 'notes',
-      init: noop,
-      buildFragment: function(id) {
-        return filter(sourceDataNotes, (note) => {
-          return get(note, 'applicationId') === id;
-        });
-      },
-      onMessage: noop,
-    }).init();
+        },
+      }).withFragment({
+        id: 'notes',
+        init: noop,
+        buildFragment: function (id) {
+          return filter(sourceDataNotes, (note) => {
+            return get(note, 'applicationId') === id;
+          });
+        },
+        onMessage: noop,
+      }).init();
+    });
 
-    it("ADS index should create document in destination datastore", function () {
+    it('ADS index should create document in destination datastore', function () {
       ads.index('app1');
       const retrievedDoc = mockDatastore.get('app1');
       expect(retrievedDoc).to.be.defined;
@@ -127,7 +132,7 @@ describe("Test Augmented Datastore", function () {
       expect(size(notes)).to.deep.equal(1);
     });
 
-    it("ADS index should create a second document in destination datastore", function () {
+    it('ADS index should create a second document in destination datastore', function () {
       ads.index('app2');
       const retrievedDoc = mockDatastore.get('app2');
       expect(retrievedDoc).to.be.defined;
@@ -139,7 +144,7 @@ describe("Test Augmented Datastore", function () {
       expect(size(mockDatastore.data)).to.deep.equal(2);
     });
 
-    it("onMessage handler should trigger fragment update", function () {
+    it('onMessage handler should trigger fragment update', function () {
       const updatedStatus = 5;
       // update source
       set(sourceDataApplication, 'app1.status', updatedStatus);

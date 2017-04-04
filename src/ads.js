@@ -1,5 +1,5 @@
 // @flow
-import { compact, get, each, flatMap, groupBy, includes, map, mapKeys, partial, reduce } from 'lodash';
+import { get, each, flatMap, groupBy, includes, map, mapKeys, partial, reduce } from 'lodash';
 import _log from './log';
 
 export const ACTION_TYPE_UNINDEX = 'unindex';
@@ -9,32 +9,38 @@ export const ACTION_TYPE_UPDATE_FRAGMENT = 'updateFragment';
 const log = partial(_log, 'ADS');
 
 export class ADS {
-  destinationStore: DataStore;
-  fragmentConfigs: Array<FragmentConfig>;
+  destinationStore: Object;
+  fragmentConfigs: Object;
 
   constructor(_destinationStore: Object) {
     this.fragmentConfigs = {};
     this.destinationStore = _destinationStore;
   }
 
-  withFragment(fragmentConfig: FragmentConfig): Object {
+  withFragment(fragmentConfig: Object): Object {
     const fragmentId = get(fragmentConfig, 'id');
     this.fragmentConfigs[fragmentId] = fragmentConfig;
 
     return this;
   }
 
-  init() {
-    each(this.fragmentConfigs, (fragmentConfig: FragmentConfig) => {
+  init(): Object {
+    each(this.fragmentConfigs, (fragmentConfig: Object) => {
       // fragments may want to subscribe to events here
-      fragmentConfig.init();
+      fragmentConfig.init(this.onMessage);
     });
 
     return this;
   }
 
+  /**
+   * Build the document from scratch by combining the results of building each fragment of the
+   * document
+   *
+   * @param id
+   */
   index(id: string) {
-    const doc = reduce(this.fragmentConfigs, (memo: Object, fragmentConfig: FragmentConfig): Object => {
+    const doc = reduce(this.fragmentConfigs, (memo: Object, fragmentConfig: Object): Object => {
       const fragment = fragmentConfig.buildFragment(id);
 
       const fragmentId = fragmentConfig.id;
@@ -54,14 +60,25 @@ export class ADS {
     this.destinationStore.index(doc);
   }
 
+  /**
+   * Remove the document from the underlying datastore.
+   *
+   * @param id
+   */
   unindex(id: string) {
     this.destinationStore.unindex(id);
   }
 
   onMessage(message: any) {
     // pass message to each fragment
-    const updates = reduce(this.fragmentConfigs, (memo, fragmentConfig: FragmentConfig) => {
+    const updates = reduce(this.fragmentConfigs, (memo: Array<Object>, fragmentConfig: Object): Array<Object> => {
       const update = fragmentConfig.onMessage(message);
+
+      // an update will look like the following:
+      // {
+      //   "ids": ["abc", "def"],
+      //   "action": "updateFragment"
+      // }
 
       if (!update) {
         return memo;
@@ -73,17 +90,23 @@ export class ADS {
       });
     }, []);
     // reconcile all the updates
-    log('TRACE', JSON.stringify(updates));
+    log('TRACE', `updates to be applied: ${JSON.stringify(updates)}`);
 
+    // updates will look like: [{"fragmentId":"status","update":{"ids":["app1"],"action":"updateFragment"}}]
     this._applyUpdates(updates);
   }
 
-  _applyUpdates(updates) {
-    const singleIdUpdates = flatMap(updates, (fragmentUpdate) => {
+  _applyUpdates(updates: Array<Object>) {
+    // each update could affect multiple documents.  Here we flatten the updates so that
+    // each update only has one document.
+    // $FlowFixMe
+    const singleIdUpdates = flatMap(updates, (fragmentUpdate: Object): Array<Object> => {
       const fragmentId = get(fragmentUpdate, 'fragmentId');
       const update = get(fragmentUpdate, 'update');
       const {ids, ...rest} = update;
-      return map(ids, (id) => {
+
+      // return an array of updates, each with a single document id
+      return map(ids, (id: string): Array<Object> => {
         return {
           id,
           fragmentId,
@@ -92,16 +115,17 @@ export class ADS {
       });
     });
 
-    const groupedById = groupBy(singleIdUpdates, (update) => {
+    // group updates by doc id
+    const groupedById = groupBy(singleIdUpdates, (update: Object): string => {
       return get(update, 'id');
     });
 
-    mapKeys(groupedById, (value, key) => {
+    mapKeys(groupedById, (value: Array<Object>, key: string) => {
       this._applyUpdatesToDoc(key, value);
     });
   }
 
-  _applyUpdatesToDoc(id, updates) {
+  _applyUpdatesToDoc(id: string, updates: Array<Object>) {
     const ops = map(updates, 'action');
 
     if (includes(ops, ACTION_TYPE_UNINDEX)) {
@@ -126,7 +150,7 @@ export class ADS {
       return;
     }
 
-    const updatedDoc = reduce(updates, (memo, update) => {
+    const updatedDoc = reduce(updates, (memo: Object, update: Object): Object => {
       const {fragmentId} = update;
       const fragmentConfig = this.fragmentConfigs[fragmentId];
       if (fragmentConfig) {
