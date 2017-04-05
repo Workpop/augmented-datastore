@@ -90,11 +90,16 @@ describe('Test Augmented Datastore', function () {
   describe('ADS with fragments', function () {
     const mockDatastore = new MockDatastore({});
     let ads;
+    let fireUpdate;
     it('creating ADS should succeed', function () {
       ads = createAugmentedDatastore(mockDatastore).withFragment({
         id: 'status',
         init: function (adsMessageHandler) {
           expect(adsMessageHandler).to.be.defined;
+
+          fireUpdate = (message) => {
+            adsMessageHandler(message);
+          };
         },
         buildFragment: function (id) {
           const sourceApplicationDoc = get(sourceDataApplication, id);
@@ -149,6 +154,21 @@ describe('Test Augmented Datastore', function () {
       // update source
       set(sourceDataApplication, 'app1.status', updatedStatus);
       ads.onMessage({
+        type: 'statusUpdated',
+        applicationId: 'app1',
+      });
+
+      const retrievedDoc = mockDatastore.get('app1');
+      expect(retrievedDoc).to.be.defined;
+      console.log(retrievedDoc);
+      expect(get(retrievedDoc, 'status')).to.deep.equal(updatedStatus);
+    });
+
+    it('onMessage handler should trigger fragment update - bind', function () {
+      const updatedStatus = 8;
+      // update source
+      set(sourceDataApplication, 'app1.status', updatedStatus);
+      fireUpdate({
         type: 'statusUpdated',
         applicationId: 'app1',
       });

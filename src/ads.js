@@ -11,10 +11,13 @@ const log = partial(_log, 'ADS');
 export class ADS {
   destinationStore: Object;
   fragmentConfigs: Object;
+  onMessage: Function;
 
   constructor(_destinationStore: Object) {
     this.fragmentConfigs = {};
     this.destinationStore = _destinationStore;
+
+    this.onMessage = this.onMessage.bind(this);
   }
 
   withFragment(fragmentConfig: Object): Object {
