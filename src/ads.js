@@ -60,6 +60,8 @@ export class ADS {
       _fragLastUpdate: {},
     });
 
+    log('TRACE', `indexing: ${id} ${JSON.stringify(doc)}`);
+
     this.destinationStore.index(doc);
   }
 
@@ -69,6 +71,7 @@ export class ADS {
    * @param id
    */
   unindex(id: string) {
+    log('TRACE', `unindexing: ${id}`);
     this.destinationStore.unindex(id);
   }
 
@@ -129,6 +132,7 @@ export class ADS {
   }
 
   _applyUpdatesToDoc(id: string, updates: Array<Object>) {
+    log('TRACE', '_applyUpdatesToDoc', id, JSON.stringify(updates));
     const ops = map(updates, 'action');
 
     if (includes(ops, ACTION_TYPE_UNINDEX)) {
@@ -143,12 +147,14 @@ export class ADS {
     }
 
     if (includes(ops, ACTION_TYPE_REINDEX)) {
+      log('TRACE', '_applyUpdatesToDoc - reindex', id);
       this.index(id);
       return;
     }
 
     const existingDoc = this.destinationStore.get(id);
     if (!existingDoc) {
+      log('TRACE', '_applyUpdatesToDoc - existing doc doesn\'t exist - reindexing', id);
       this.index(id);
       return;
     }
@@ -169,6 +175,8 @@ export class ADS {
 
       return memo;
     }, existingDoc);
+
+    log('TRACE', '_applyUpdatesToDoc - updating doc', JSON.stringify(updatedDoc));
 
     this.destinationStore.index(updatedDoc);
   }
