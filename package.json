@@ -1,6 +1,6 @@
 {
   "name": "@workpop/augmented-datastore",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A datastore which combines data from multiple sources",
   "scripts": {
     "build": "babel ./src --ignore test --out-dir ./lib",
