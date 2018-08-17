@@ -1,5 +1,15 @@
 // @flow
-import { get, each, flatMap, groupBy, includes, map, mapKeys, partial, reduce } from 'lodash';
+import {
+  get,
+  each,
+  flatMap,
+  groupBy,
+  includes,
+  map,
+  mapKeys,
+  partial,
+  reduce,
+} from 'lodash';
 import _log from './log';
 
 export const ACTION_TYPE_UNINDEX = 'unindex';
@@ -42,27 +52,41 @@ export class ADS {
    *
    * @param id
    */
-  index(id: string) {
-    const doc = reduce(this.fragmentConfigs, (memo: Object, fragmentConfig: Object): Object => {
-      const fragment = fragmentConfig.buildFragment(id);
+  async index(id: string): Promise<any> {
+    const fragments = await Promise.all(
+      map(
+        this.fragmentConfigs,
+        async (config: Object): Object => {
+          const fragment = await config.buildFragment(id);
 
-      const fragmentId = fragmentConfig.id;
+          const fragmentId = config.id;
+          return {
+            fragment,
+            fragmentId,
+          };
+        }
+      )
+    );
 
-      return Object.assign({}, memo, {
-        [fragmentId]: fragment,
-        _fragLastUpdate: {
-          ...get(memo, '_fragLastUpdate'),
-          [fragmentId]: new Date(),
-        },
-      });
-    }, {
-      _id: id,
-      _fragLastUpdate: {},
-    });
+    const doc = reduce(
+      fragments,
+      (memo: Object, { fragment, fragmentId }: Object): Object => {
+        return Object.assign({}, memo, {
+          [fragmentId]: fragment,
+          _fragLastUpdate: {
+            ...get(memo, '_fragLastUpdate'),
+            [fragmentId]: new Date(),
+          },
+        });
+      },
+      {
+        _fragLastUpdate: {},
+      }
+    );
 
     log('TRACE', `indexing: ${id} ${JSON.stringify(doc)}`);
 
-    this.destinationStore.index(doc);
+    this.destinationStore.index(Object.assign(doc, { _id: id }));
   }
 
   /**
@@ -75,68 +99,89 @@ export class ADS {
     this.destinationStore.unindex(id);
   }
 
-  onMessage(message: any) {
+  async onMessage(message: any): Promise<any> {
     // pass message to each fragment
-    const updates = reduce(this.fragmentConfigs, (memo: Array<Object>, fragmentConfig: Object): Array<Object> => {
-      const update = fragmentConfig.onMessage(message);
+    const updates = reduce(
+      this.fragmentConfigs,
+      (memo: Array<Object>, fragmentConfig: Object): Array<Object> => {
+        const update = fragmentConfig.onMessage(message);
 
-      // an update will look like the following:
-      // {
-      //   "ids": ["abc", "def"],
-      //   "action": "updateFragment"
-      // }
+        // an update will look like the following:
+        // {
+        //   "ids": ["abc", "def"],
+        //   "action": "updateFragment"
+        // }
 
-      if (!update) {
-        return memo;
-      }
+        if (!update) {
+          return memo;
+        }
 
-      return memo.concat({
-        fragmentId: fragmentConfig.id,
-        update,
-      });
-    }, []);
+        return memo.concat({
+          fragmentId: fragmentConfig.id,
+          update,
+        });
+      },
+      []
+    );
     // reconcile all the updates
     log('TRACE', `updates to be applied: ${JSON.stringify(updates)}`);
 
     // updates will look like: [{"fragmentId":"status","update":{"ids":["app1"],"action":"updateFragment"}}]
-    this._applyUpdates(updates);
+    await this._applyUpdates(updates);
   }
 
-  _applyUpdates(updates: Array<Object>) {
+  async _applyUpdates(updates: Array<Object>): Promise<any> {
     // each update could affect multiple documents.  Here we flatten the updates so that
     // each update only has one document.
     // $FlowFixMe
-    const singleIdUpdates = flatMap(updates, (fragmentUpdate: Object): Array<Object> => {
-      const fragmentId = get(fragmentUpdate, 'fragmentId');
-      const update = get(fragmentUpdate, 'update');
-      const {ids, ...rest} = update;
+    const singleIdUpdates = flatMap(
+      updates,
+      (fragmentUpdate: Object): Array<Object> => {
+        const fragmentId = get(fragmentUpdate, 'fragmentId');
+        const update = get(fragmentUpdate, 'update');
+        const { ids, ...rest } = update;
 
-      // return an array of updates, each with a single document id
-      return map(ids, (id: string): Array<Object> => {
-        return {
-          id,
-          fragmentId,
-          ...rest,
-        };
-      });
-    });
+        // return an array of updates, each with a single document id
+        return map(
+          ids,
+          (id: string): any => {
+            return {
+              id,
+              fragmentId,
+              ...rest,
+            };
+          }
+        );
+      }
+    );
 
     // group updates by doc id
-    const groupedById = groupBy(singleIdUpdates, (update: Object): string => {
-      return get(update, 'id');
-    });
+    const groupedById = groupBy(
+      singleIdUpdates,
+      (update: Object): string => {
+        return get(update, 'id');
+      }
+    );
 
-    mapKeys(groupedById, (value: Array<Object>, key: string) => {
-      this._applyUpdatesToDoc(key, value);
-    });
+    const groupedKeys = mapKeys(
+      groupedById,
+      async (value: Array<Object>, key: string): Promise<any> => {
+        await this._applyUpdatesToDoc(key, value);
+      }
+    );
+
+    await groupedKeys;
   }
 
-  _applyUpdatesToDoc(id: string, updates: Array<Object>) {
+  async _applyUpdatesToDoc(id: string, updates: Array<Object>): Promise<any> {
     log('TRACE', '_applyUpdatesToDoc', id, JSON.stringify(updates));
     const ops = map(updates, 'action');
 
     if (includes(ops, ACTION_TYPE_UNINDEX)) {
-      if (includes(ops, ACTION_TYPE_UPDATE_FRAGMENT) || includes(ops, ACTION_TYPE_REINDEX)) {
+      if (
+        includes(ops, ACTION_TYPE_UPDATE_FRAGMENT) ||
+        includes(ops, ACTION_TYPE_REINDEX)
+      ) {
         log('ERROR', 'combined unindex and index operations');
         return;
       }
@@ -154,29 +199,41 @@ export class ADS {
 
     const existingDoc = this.destinationStore.get(id);
     if (!existingDoc) {
-      log('TRACE', '_applyUpdatesToDoc - existing doc doesn\'t exist - reindexing', id);
+      log(
+        'TRACE',
+        "_applyUpdatesToDoc - existing doc doesn't exist - reindexing",
+        id
+      );
       this.index(id);
       return;
     }
 
-    const updatedDoc = reduce(updates, (memo: Object, update: Object): Object => {
-      const {fragmentId} = update;
-      const fragmentConfig = this.fragmentConfigs[fragmentId];
-      if (fragmentConfig) {
-        const fragment = fragmentConfig.buildFragment(id);
-        return Object.assign(memo, {
-          [fragmentId]: fragment,
-          _fragLastUpdate: {
-            ...get(memo, '_fragLastUpdate'),
-            [fragmentId]: new Date(),
-          },
-        });
-      }
+    const updatedDoc = await reduce(
+      updates,
+      async (memo: Object, update: Object): Object => {
+        const { fragmentId } = update;
+        const fragmentConfig = this.fragmentConfigs[fragmentId];
+        if (fragmentConfig) {
+          const fragment = await fragmentConfig.buildFragment(id);
+          return Object.assign(memo, {
+            [fragmentId]: fragment,
+            _fragLastUpdate: {
+              ...get(memo, '_fragLastUpdate'),
+              [fragmentId]: new Date(),
+            },
+          });
+        }
 
-      return memo;
-    }, existingDoc);
+        return memo;
+      },
+      existingDoc
+    );
 
-    log('TRACE', '_applyUpdatesToDoc - updating doc', JSON.stringify(updatedDoc));
+    log(
+      'TRACE',
+      '_applyUpdatesToDoc - updating doc',
+      JSON.stringify(updatedDoc)
+    );
 
     this.destinationStore.index(updatedDoc);
   }
