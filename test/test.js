@@ -53,41 +53,41 @@ class MockDatastore {
 }
 
 describe('Test Augmented Datastore', function () {
-  // describe('Test mock datastore', function () {
-  //   const mockDatastore = new MockDatastore({});
-  //   it('index should create document in mock datastore', function () {
-  //     mockDatastore.index({
-  //       _id: '555',
-  //       hello: 'world',
-  //     });
-  //     const retrievedDoc = mockDatastore.get('555');
-  //     expect(retrievedDoc).to.be.defined;
-  //     expect(get(retrievedDoc, 'hello')).to.deep.equal('world');
-  //   });
-  //
-  //   it('unindex should remove document in mock datastore', function () {
-  //     mockDatastore.unindex('555');
-  //     const retrievedDoc2 = mockDatastore.get('555');
-  //     expect(retrievedDoc2).to.not.be.defined;
-  //   });
-  // });
-  //
-  // describe('ADS with no fragments', function () {
-  //   const mockDatastore = new MockDatastore({});
-  //   const ads = createAugmentedDatastore(mockDatastore);
-  //
-  //   it('ADS index should create document in destination datastore', async function () {
-  //     ads.index('app1');
-  //     const retrievedDoc = mockDatastore.get('app1');
-  //     expect(retrievedDoc).to.be.defined;
-  //   });
-  //
-  //   it('ADS unindex should remove document in destination datastore', function () {
-  //     ads.unindex('app1');
-  //     const retrievedDoc = mockDatastore.get('app1');
-  //     expect(retrievedDoc).to.not.be.defined;
-  //   });
-  // });
+  describe('Test mock datastore', function () {
+    const mockDatastore = new MockDatastore({});
+    it('index should create document in mock datastore', function () {
+      mockDatastore.index({
+        _id: '555',
+        hello: 'world',
+      });
+      const retrievedDoc = mockDatastore.get('555');
+      expect(retrievedDoc).to.be.defined;
+      expect(get(retrievedDoc, 'hello')).to.deep.equal('world');
+    });
+
+    it('unindex should remove document in mock datastore', function () {
+      mockDatastore.unindex('555');
+      const retrievedDoc2 = mockDatastore.get('555');
+      expect(retrievedDoc2).to.not.be.defined;
+    });
+  });
+
+  describe('ADS with no fragments', function () {
+    const mockDatastore = new MockDatastore({});
+    const ads = createAugmentedDatastore(mockDatastore);
+
+    it('ADS index should create document in destination datastore', async function () {
+      ads.index('app1');
+      const retrievedDoc = mockDatastore.get('app1');
+      expect(retrievedDoc).to.be.defined;
+    });
+
+    it('ADS unindex should remove document in destination datastore', function () {
+      ads.unindex('app1');
+      const retrievedDoc = mockDatastore.get('app1');
+      expect(retrievedDoc).to.not.be.defined;
+    });
+  });
 
   describe('ADS with fragments', function () {
     const mockDatastore = new MockDatastore({});
